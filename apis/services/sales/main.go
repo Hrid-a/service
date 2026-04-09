@@ -10,6 +10,8 @@ import (
 	"github.com/Hrid-a/service/foundation/logger"
 )
 
+var build = "develop"
+
 func main() {
 
 	var log *logger.Logger
