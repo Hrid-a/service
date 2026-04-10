@@ -1,15 +1,16 @@
 package mux
 
 import (
-	"net/http"
+	"os"
 
 	"github.com/Hrid-a/service/apis/services/sales/route/sys/checkapi"
+	"github.com/Hrid-a/service/foundation/web"
 )
 
-func WebAPI() *http.ServeMux {
+func WebAPI(ch chan os.Signal) *web.App {
 
-	mux := http.NewServeMux()
+	app := web.NewApp(ch)
 
-	checkapi.Routes(mux)
-	return mux
+	checkapi.Routes(app)
+	return app
 }

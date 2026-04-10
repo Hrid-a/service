@@ -1,28 +1,30 @@
 package checkapi
 
 import (
-	"encoding/json"
+	"context"
 	"net/http"
+
+	"github.com/Hrid-a/service/foundation/web"
 )
 
-func liveness(w http.ResponseWriter, r *http.Request) {
+func liveness(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 
 	status := struct {
 		Status string
 	}{
-		Status: "Ok",
+		Status: "Ok liveness",
 	}
 
-	json.NewEncoder(w).Encode(status)
+	return web.Response(ctx, w, status, http.StatusOK)
 }
 
-func readiness(w http.ResponseWriter, r *http.Request) {
+func readiness(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 
 	status := struct {
 		Status string
 	}{
-		Status: "Ok",
+		Status: "Ok readiness",
 	}
 
-	json.NewEncoder(w).Encode(status)
+	return web.Response(ctx, w, status, http.StatusOK)
 }
