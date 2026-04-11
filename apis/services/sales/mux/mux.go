@@ -11,7 +11,7 @@ import (
 
 func WebAPI(log *logger.Logger, ch chan os.Signal) *web.App {
 
-	app := web.NewApp(ch, mid.Logger(log))
+	app := web.NewApp(ch, mid.Logger(log), mid.Error(log))
 
 	checkapi.Routes(app)
 	return app
