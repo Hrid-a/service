@@ -45,3 +45,7 @@ func testerr(ctx context.Context, w http.ResponseWriter, r *http.Request) error 
 
 	return web.Response(ctx, w, status, http.StatusOK)
 }
+func testpanic(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+
+	panic("We're cooked!!!!")
+}

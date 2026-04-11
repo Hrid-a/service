@@ -9,5 +9,6 @@ func Routes(mux *web.App) {
 	mux.HandleFunc("GET /liveness", liveness)
 	mux.HandleFunc("GET /readiness", readiness)
 	mux.HandleFunc("GET /testerr", testerr)
+	mux.HandleFunc("GET /testpanic", testpanic)
 
 }
