@@ -35,10 +35,10 @@ func init() {
 
 func Error(log *logger.Logger) web.MidHandler {
 
-	return func(h web.Handler) web.Handler {
+	return func(handler web.Handler) web.Handler {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 			hdl := func(ctx context.Context) error {
-				return h(ctx, w, r)
+				return handler(ctx, w, r)
 			}
 
 			if err := mid.Error(ctx, log, hdl); err != nil {

@@ -2,8 +2,9 @@ package logger
 
 import (
 	"context"
-	"log/slog"
 	"time"
+
+	"log/slog"
 )
 
 // Level represents different logging levels.

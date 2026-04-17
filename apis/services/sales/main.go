@@ -31,11 +31,11 @@ func main() {
 		},
 	}
 
-	traceIdfn := func(ctx context.Context) string {
+	traceIDFn := func(ctx context.Context) string {
 		return web.GetTraceID(ctx)
 	}
 
-	log = logger.NewWithEvents(os.Stdout, logger.LevelInfo, "SALES", traceIdfn, events)
+	log = logger.NewWithEvents(os.Stdout, logger.LevelInfo, "SALES", traceIDFn, events)
 
 	ctx := context.Background()
 

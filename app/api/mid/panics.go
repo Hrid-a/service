@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
+
+	"github.com/Hrid-a/service/app/api/metrics"
 )
 
 func Panic(ctx context.Context, handler Handler) (err error) {
@@ -13,6 +15,7 @@ func Panic(ctx context.Context, handler Handler) (err error) {
 		if rec := recover(); rec != nil {
 			trace := debug.Stack()
 			err = fmt.Errorf("PANIC [%v] TRACE[%s]", rec, string(trace))
+			metrics.AddPanics(ctx)
 		}
 	}()
 

@@ -61,6 +61,31 @@ func (a *App) HandleFunc(pattern string, handler Handler, mw ...MidHandler) {
 
 }
 
+// HandleFuncNoMiddleware set a handler function
+func (a *App) HandleFuncNoMiddleware(pattern string, handler Handler, mw ...MidHandler) {
+
+	h := func(w http.ResponseWriter, r *http.Request) {
+		// do something before
+		v := Values{
+			TraceID: uuid.NewString(),
+			Now:     time.Now().UTC(),
+		}
+
+		ctx := setValues(r.Context(), &v)
+
+		if err := handler(ctx, w, r); err != nil {
+			if validateError(err) {
+				a.SignalShutdown()
+			}
+			return
+		}
+		// do something before
+	}
+
+	a.ServeMux.HandleFunc(pattern, h)
+
+}
+
 // validateError validates the error for special conditions that do not
 // warrant an actual shutdown by the system.
 func validateError(err error) bool {
