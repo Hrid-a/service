@@ -14,6 +14,7 @@ import (
 
 	"github.com/Hrid-a/service/apis/services/api/debug"
 	"github.com/Hrid-a/service/apis/services/sales/mux"
+	"github.com/Hrid-a/service/app/api/authclient"
 	"github.com/Hrid-a/service/foundation/logger"
 	"github.com/Hrid-a/service/foundation/web"
 	"github.com/ardanlabs/conf/v3"
@@ -22,7 +23,6 @@ import (
 var build = "develop"
 
 func main() {
-
 	var log *logger.Logger
 
 	events := logger.Events{
@@ -37,17 +37,26 @@ func main() {
 
 	log = logger.NewWithEvents(os.Stdout, logger.LevelInfo, "SALES", traceIDFn, events)
 
+	// -------------------------------------------------------------------------
+
 	ctx := context.Background()
 
 	if err := run(ctx, log); err != nil {
-		log.Error(ctx, "startup", "err", err)
+		log.Error(ctx, "startup", "msg", err)
 		os.Exit(1)
 	}
 }
 
 func run(ctx context.Context, log *logger.Logger) error {
 
+	// -------------------------------------------------------------------------
+	// GOMAXPROCS
+
 	log.Info(ctx, "startup", "GOMAXPROCS", runtime.GOMAXPROCS(0))
+
+	// -------------------------------------------------------------------------
+	// Configuration
+
 	cfg := struct {
 		conf.Version
 		Web struct {
@@ -57,7 +66,10 @@ func run(ctx context.Context, log *logger.Logger) error {
 			ShutdownTimeout    time.Duration `conf:"default:20s"`
 			APIHost            string        `conf:"default:0.0.0.0:3000"`
 			DebugHost          string        `conf:"default:0.0.0.0:3010"`
-			CORSAllowedOrigins []string      `conf:"default:*"`
+			CORSAllowedOrigins []string      `conf:"default:*,mask"`
+		}
+		Auth struct {
+			Host string `conf:"default:http://auth-service.sales-system.svc.cluster.local:6000"`
 		}
 	}{
 		Version: conf.Version{
@@ -66,7 +78,7 @@ func run(ctx context.Context, log *logger.Logger) error {
 		},
 	}
 
-	prefix := "Sales"
+	const prefix = "SALES"
 	help, err := conf.Parse(prefix, &cfg)
 	if err != nil {
 		if errors.Is(err, conf.ErrHelpWanted) {
@@ -87,9 +99,18 @@ func run(ctx context.Context, log *logger.Logger) error {
 		return fmt.Errorf("generating config for output: %w", err)
 	}
 	log.Info(ctx, "startup", "config", out)
-	// log.BuildInfo(ctx)
 
 	expvar.NewString("build").Set(cfg.Build)
+
+	// -------------------------------------------------------------------------
+	// Initialize authentication support
+
+	log.Info(ctx, "startup", "status", "initializing authentication support")
+
+	logFunc := func(ctx context.Context, msg string, v ...any) {
+		log.Info(ctx, msg, v...)
+	}
+	authClient := authclient.New(cfg.Auth.Host, logFunc)
 
 	// -------------------------------------------------------------------------
 	// Start Debug Service
@@ -112,7 +133,7 @@ func run(ctx context.Context, log *logger.Logger) error {
 
 	api := http.Server{
 		Addr:         cfg.Web.APIHost,
-		Handler:      mux.WebAPI(log, shutdown),
+		Handler:      mux.WebAPI(log, authClient, shutdown),
 		ReadTimeout:  cfg.Web.ReadTimeout,
 		WriteTimeout: cfg.Web.WriteTimeout,
 		IdleTimeout:  cfg.Web.IdleTimeout,

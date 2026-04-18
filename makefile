@@ -77,7 +77,7 @@ dev-docker:
 # ==============================================================================
 # Building containers
 
-build: sales 
+build: sales auth
 
 sales:
 	docker build \
@@ -87,6 +87,13 @@ sales:
 		--build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
 		.
 
+auth:
+	docker build \
+		-f zarf/docker/dockerfile.auth \
+		-t $(AUTH_IMAGE) \
+		--build-arg BUILD_REF=$(VERSION) \
+		--build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
+		.
 # ==============================================================================
 # Running from within k8s/kind
 # Docker Desktop 28.3.2 changed how it stores image layers, causing KIND's kind
@@ -132,14 +139,18 @@ dev-status:
 # ------------------------------------------------------------------------------
 
 dev-load:
-	kind load docker-image $(SALES_IMAGE) --name $(KIND_CLUSTER) & \
-	wait;
+	kind load docker-image $(SALES_IMAGE) --name $(KIND_CLUSTER)
+	kind load docker-image $(AUTH_IMAGE) --name $(KIND_CLUSTER)
 
 dev-apply:
+	kustomize build zarf/k8s/dev/auth | kubectl apply -f -
+	kubectl wait pods --namespace=$(NAMESPACE) --selector app=$(AUTH_APP) --timeout=120s --for=condition=Ready
+
 	kustomize build zarf/k8s/dev/sales | kubectl apply -f -
 	kubectl wait pods --namespace=$(NAMESPACE) --selector app=$(SALES_APP) --timeout=120s --for=condition=Ready
 
 dev-restart:
+	kubectl rollout restart deployment $(AUTH_APP) --namespace=$(NAMESPACE)
 	kubectl rollout restart deployment $(SALES_APP) --namespace=$(NAMESPACE)
 
 dev-run: build dev-up dev-load dev-apply
@@ -150,6 +161,10 @@ dev-update-apply: build dev-load dev-apply
 
 dev-logs:
 	kubectl logs --namespace=$(NAMESPACE) -l app=$(SALES_APP) --all-containers=true -f --tail=100 --max-log-requests=6 | go run apis/tooling/logfmt/main.go -service=$(SALES_APP)
+
+dev-logs-auth:
+	kubectl logs --namespace=$(NAMESPACE) -l app=$(AUTH_APP) --all-containers=true -f --tail=100 | go run apis/tooling/logfmt/main.go
+
 
 
 # ------------------------------------------------------------------------------
@@ -165,6 +180,10 @@ dev-describe-deployment:
 
 dev-describe-sales:
 	kubectl describe pod --namespace=$(NAMESPACE) -l app=$(SALES_APP)
+
+dev-describe-auth:
+	kubectl describe pod --namespace=$(NAMESPACE) -l app=$(AUTH_APP)
+
 
 # ==============================================================================
 # Metrics and Tracing
@@ -194,3 +213,26 @@ tidy:
 
 help:
 	go run apis/services/sales/main.go
+
+
+# 	=======================================
+admin:
+	go run apis/tooling/admin/main.go
+
+# admin token
+# export TOKEN=eyJhbGciOiJSUzI1NiIsImtpZCI6IjU0YmIyMTY1LTcxZTEtNDFhNi1hZjNlLTdkYTRhMGUxZTJjMSIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzZXJ2aWNlIHByb2plY3QiLCJzdWIiOiIzOGRjOWQ4NC0wMThiLTRhMTUtYjk1OC0wYjc4YWYxMWMzMDEiLCJleHAiOjE3NDU1OTY1MTEsImlhdCI6MTcxNDA2MDUxMSwiUm9sZXMiOlsiQURNSU4iXX0.nioy4PpggnfrwTxNTQKbviCs3duF53Q5jcoRQqdngQSv7lccKYgTmxzuyMano-Yd-KijtHBCZxWAOFEv5w6xGCfqmQRThKXzQXiHN5Cv0OGab5lmThPGRuCHv35lEQzImKU9E1skSwHvCwyX89pRJpnku9PKJMT_Z4oT6amwFA50HU8jSM8j1HQ0ao60jSMgELKFFb9m3u4ZKIj4w7qxwwV9JD2_wH8HWjt5P1L2V5YtnP9vgMOBZ617TTGRysDS8WXQGXqEAiVQVZSneJCUR-4HofXvOTYIKyQG3iUAs3WTf91EubJQbeW6cFmwudE4xx4t20EaVIUkMr00jFxHtg
+
+# user token
+# export TOKEN=eyJhbGciOiJSUzI1NiIsImtpZCI6IjU0YmIyMTY1LTcxZTEtNDFhNi1hZjNlLTdkYTRhMGUxZTJjMSIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzZXJ2aWNlIHByb2plY3QiLCJzdWIiOiIzOGRjOWQ4NC0wMThiLTRhMTUtYjk1OC0wYjc4YWYxMWMzMDEiLCJleHAiOjE3NDU1OTY1NTUsImlhdCI6MTcxNDA2MDU1NSwiUm9sZXMiOlsiVVNFUiJdfQ.bBomVD8igAkiXzKvsBQGj5Nb5ho2MYq-eOXeFjtfdauayE4lQamFtWHUjKq1KaIzMvxlybdU_37py620vOBrQ7tUIYTdY91ggf-AgakBTm3UTs494BjIv3rvPM0baXKSMSe8Ao2acjhTSPA9Crz0mEgWynd3gcuSXVAXrSO3eH8bPuBqR2Ohp1_JsE4Y_dj0Mfmzo8wRQHmBI-QVMT0udUlxVGsLhurGmFpLSrQ7Vzr-xuCJPMgjkTZmSvelCrxSeql6-scwZLTHjgqkzqIMS5EceyKAQfYuuRgqrwwIAtGhyM6SrPHH3WFEy2RHW2ebqQKa-fc3JAcJH44hgiiGsA
+
+curl-auth:
+	curl -il \
+	-H "Authorization: Bearer ${TOKEN}" "http://localhost:3000/testauth"
+
+token:
+	curl -il \
+	--user "admin@example.com:gophers" http://localhost:6000/auth/token/54bb2165-71e1-41a6-af3e-7da4a0e1e2c1
+
+curl-auth2:
+	curl -il \
+	-H "Authorization: Bearer ${TOKEN}" "http://localhost:6000/auth/authenticate"
